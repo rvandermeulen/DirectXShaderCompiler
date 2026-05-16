@@ -573,10 +573,20 @@ namespace llvm {
 // HLSL Change Starts
 // StringRef provides an operator string; that trips up the std::pair noexcept
 // specification, which (a) enables the moves constructor (because conversion is
-// allowed), but (b) misclassifies the the construction as nothrow. Newer libc++
-// releases reject user specializations of this trait outright, and also compute
-// the trait correctly without help.
-#if !defined(_LIBCPP_VERSION)
+// allowed), but (b) misclassifies the the construction as nothrow.
+//
+// Newer standard library releases reject user specializations of this trait
+// outright, and also compute the trait correctly without help. These include:
+//
+// - LLVM's libc++, which defines _LIBCPP_VERSION
+//
+// - Microsoft's STL starting with the April 2026 update (shipped with Visual
+//   Studio 2026 14.51), detected via _MSVC_STL_UPDATE. Keying on the STL
+//   update rather than _MSC_VER avoids spurious mismatches when clang-cl is
+//   invoked with -fms-compatibility-version set to an older value than the
+//   actual MSVC toolset (as happens in DXC's own WinMsvc.cmake).
+#if !defined(_LIBCPP_VERSION) && \
+    !(defined(_MSVC_STL_UPDATE) && _MSVC_STL_UPDATE >= 202604L)
 namespace std {
   template<>
   struct is_nothrow_constructible <std::string, llvm::StringRef>
